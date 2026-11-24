@@ -1073,6 +1073,23 @@ def test_rename_experiment(store: SqlAlchemyStore):
         store.rename_experiment(experiment_id, "x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
 
 
+def test_rename_experiment_to_existing_name_raises_resource_already_exists(
+    store: SqlAlchemyStore,
+):
+    store.create_experiment("taken")
+    experiment_id = store.create_experiment("other")
+
+    with pytest.raises(MlflowException, match=r"Experiment\(name=taken\) already exists") as e:
+        store.rename_experiment(experiment_id, "taken")
+    assert e.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    assert store.get_experiment(experiment_id).name == "other"
+
+    store.delete_experiment(store.get_experiment_by_name("taken").experiment_id)
+    with pytest.raises(MlflowException, match=r"Experiment\(name=taken\) already exists") as e:
+        store.rename_experiment(experiment_id, "taken")
+    assert e.value.error_code == "RESOURCE_ALREADY_EXISTS"
+
+
 def test_restore_experiment(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "helloexp")
     exp = store.get_experiment(experiment_id)
